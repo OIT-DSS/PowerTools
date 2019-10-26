@@ -1,0 +1,27 @@
+Hello Benedict,
+ 
+Here is a PowerShell command that can be used to quickly check BitLocker encryption status:
+ 
+manage-bde -status c:
+ 
+ 
+Example:
+ 
+PS C:\windows\system32> manage-bde -status c:
+BitLocker Drive Encryption: Configuration Tool version 10.0.17763
+Copyright (C) 2013 Microsoft Corporation. All rights reserved.
+ 
+Volume C: [Windows]
+[OS Volume]
+ 
+    Size:                 235.48 GB
+    BitLocker Version:    2.0
+    Conversion Status:    Used Space Only Encrypted
+    Percentage Encrypted: 100.0%
+    Encryption Method:    XTS-AES 128
+    Protection Status:    Protection On
+    Lock Status:          Unlocked
+    Identification Field: Unknown
+    Key Protectors:
+        TPM
+        Numerical Password

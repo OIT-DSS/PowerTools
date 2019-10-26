@@ -1,0 +1,1 @@
+Remove-Computer -UnjoinDomaincredential ad.uci.edu\bychua-wa -PassThru -Verbose -Restart

@@ -1,0 +1,1 @@
+add-computer –domainname ad.uci.edu -Credential AD\bychua-sa -restart –force
