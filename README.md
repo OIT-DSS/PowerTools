@@ -1,2 +1,19 @@
 # PowerTools
-PowerShell Tools for DSS Testing
+PowerShell Tools for Office of Information Technology, Desktop Support Group at the University of California, Irvine. 
+
+Tools available for modification and reuse to support common IT tasks. Powershell scripts offer auditable, repeatable, and
+robust automation of common DSS tasks. 
+
+# In the Toolbox (Beta)
+
+> Create-Presenter | Two flavors of the same script. Creates a local presenter account with the option of autologon. 
+> Register-MAC-Prod | A device-agnostic script to automatically gather network interface information. Outputs a text file for
+    easy cut-and-paste bulk registration of MAC addresses 
+
+# In the Lab 
+
+> Join-Domain and Unjoin-Domain | One (or two)-click to add or remove a computer from the domain. 
+> Reboot-Suspend | Suspends Bitlocker for 3 reboots. Used for temporarily disabling Bitlocker before running Dell Command |
+    Update to avoid PIN screen being displayed 
+
+(Disclaimer - Tools are offered as-is and without warranty. I'm terribly sorry if it causes your rig to spontaneously combust, but we are not liable for any unexpected compute issues resulting from running the scripts above. Test these scripts in your own managed/unmanaged environment responsibly.) 
