@@ -1,5 +1,10 @@
-﻿# OIT DSS PowerShell Temporary Suspension
-# Run before pushing Dell Command Update 3x Restart 
+﻿# Author(s): Benedict Yi Chua
+# Collaborators: None
+# Organization: UC Irvine Office of Information Technology
+
+# Script Name: Run before pushing Dell Command Update 3x Restart 
+# Description: 
+# Last Updated: 
 
 $RebootSuspend = 3
 

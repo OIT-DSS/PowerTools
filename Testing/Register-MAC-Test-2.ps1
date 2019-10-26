@@ -1,16 +1,18 @@
+# Author(s): Benedict Yi Chua, Daniel Dubisz
+# Collaborators: Ramon Garcia
+# Organization: UC Irvine Office of Information Technology
+
 # Script Name: Register-MAC-Test-2
-# Description: Device-agnostic MAC registration for DSS-supported Laptops and Desktops 
-# Author: Daniel Dubisz 
-# Collaborators: Benedict Yi Chua 
-# Last Updated 10-24-2019
+# Description: Device-agnostic MAC registration for DSS-supported Laptops and Desktops
+# Last Updated: 10-24-2019
 
 Write-Output "`n[ DSS Mobile Access Registration Powershell Script ]`n"
 
 #################################################################################
 
-#Person Lookup Function
+# UCINetID Lookup, returns full name corresponding to given UCINetID
 
-function userinfo {
+function Get-FullName {
     param (
         $trait,
         $person
@@ -30,19 +32,19 @@ function userinfo {
 
 #################################################################################
 
-#Gets Technician Full Name
+# Gets Technician Full Name
 
 Write-Output "`n<<<`tTechnician Assignment Identification >>>`n"
 
 $ShortName = (whoami.exe | Out-String).replace("-wa", "").replace("ad\", "")
 
-$FullTechName = userinfo -trait Name -person $ShortName
+$FullTechName = Get-FullName -trait Name -person $ShortName
 
 Write-Output "`n[i] Technician Identified in AD`n[i] Registering as $FullTechName`n"
 
 #################################################################################
 
-#Gets Baseline System Information
+# Gets Baseline System Information
 
 Write-Output "`n<<<`tSystem Baseline Information >>>`n"
 
@@ -54,25 +56,19 @@ $HwBuild = Get-WmiObject -Class:Win32_ComputerSystem | Select Name, Manufacturer
 
 Write-Output "[System Name: $($HwBuild.Name)]`n[System Model: $($HwBuild.Manufacturer) $($HwBuild.Model)]`n"
 
-
 #################################################################################
 
-
-#Get Network Hardware Information
+# Get Network Hardware Information
 
 Write-Output "`n<<<`tNetwork Hardware Information Gathering >>>`n"
 
-#Create array with Network Adapter information
+# Create array with Network Adapter information
 
 $NetworkHw = Get-NetAdapter | select MacAddress, Name, InterfaceDescription, Status
 
-#Sort array so current active adapter is on top
+# Sort array so current active adapter is on top
 
 $NetworkHw = $NetworkHw | Sort-Object -Property Status -Descending
-
-#Create blank array to fill with final information
-
-
 
 #Set constant values for registration
 
@@ -81,8 +77,9 @@ $IPAddress = '' #Blank for this stage
 
 #Desktop and Laptop Registration Process is the same, filter by interface name
 
-#D: created function for the creation of each powershell object
-function regline {
+# Generic function to create object containing individual registration entry
+
+function Create-RegObject {
 
     param (
         $Type
@@ -92,7 +89,6 @@ function regline {
     $RegistrationObject | Add-Member -MemberType NoteProperty -Name MACAddress -Value $($line.MacAddress)
     $RegistrationObject | Add-Member -MemberType NoteProperty -Name IPAddress -Value $IPAddress
     $RegistrationObject | Add-Member -MemberType NoteProperty -Name UCINetID -Value $AdminUCINetID
-    #D: created new property to catagorize the objects for later registration 
     $RegistrationObject | Add-Member -MemberType NoteProperty -Name Type -Value $Type 
     $RegistrationObject | Add-Member -MemberType NoteProperty -Name Comment -Value "Computername: $($HwBuild.Name). Model: $($HwBuild.Model). SN# $SystemSerial. $Type. Entered by $FullTechName"
 
@@ -104,7 +100,8 @@ function regline {
 
 $RegistrationArray = @() 
 
-#D: as you can see, function calls where there used to be more lines, plus we could perhaps modify the function for later use in other scripts
+#D: as you can see, function calls where there used to be more lines, 
+# plus we could perhaps modify the function for later use in other scripts
 
 foreach ($line in $NetworkHw) {
 
@@ -114,7 +111,7 @@ foreach ($line in $NetworkHw) {
 
         Write-Output "`n[i] Adding entry for Wired Dock..."
 
-        regline -Type "Wired Dock"
+        Create-RegObject -Type "Wired Dock"
 
     }
 
@@ -124,7 +121,7 @@ foreach ($line in $NetworkHw) {
 
         Write-Output "`n[i] Adding entry for Wired Ethernet..."
 
-        regline -Type "Wired"
+        Create-RegObject -Type "Wired"
 
     }
     #Checks for Wireless entry and adds to object.
@@ -133,7 +130,7 @@ foreach ($line in $NetworkHw) {
         
         Write-Output "`n[i] Adding entry for Wireless Adapter..."
 
-        regline -Type "Wireless"
+        Create-RegObject -Type "Wireless"
 
     }
 }
@@ -142,26 +139,12 @@ Write-Output "All registrations complete."
 
 #################################################################################
 
-#Assign IP Addresses
+# Assign IP Addresses
 
 Write-Output "`n<<<`tIP Address Assignment`t>>>`n"
 
-#Assigns IP Addresses to onboard and external NICs
-#If multiple IP addresses to assign, option exists to assign IPs to individual NICs
-
-
-#D: Here's where I did the most change, 
-
-# To protect against edge case for accidently asking for ip reg for wifi, and to condense the two ip loops, I created a loop for each of the entries.
-
-# We use the new property of the object "Value" to see if they are going to need ip registration or not
-
-# for each that do, we can just use the same variables to slot the ip into the right object in registration-array
-
-# after the loop goes through the object, we remove the extra property that I made, as we don't need it anymore and so that your nicely made output to csv file remains correct,
-
-# I did enjoy discovering how that worked, very neat.  
-
+# Assigns IP Addresses to onboard and external NICs
+# If multiple IP addresses to assign, option exists to assign IPs to individual NICs
 
 foreach ($entries in $RegistrationArray) {
     if (!($entries.Type -like "Wireless")) {
@@ -201,16 +184,13 @@ Write-Output "Registrations Updated"
 
 Write-Host ($RegistrationArray | Format-List | Out-String)
 
-#D: Here I noticed that if we use temporary file for the temp file, we can run the command from wherever and don't have to 
-# put it on the desktop, I think that'd be more convienient. 
-
-$tempf = New-TemporaryFile
+$NoFormatTempFile = New-TemporaryFile
 $UserPath = "$($env:USERPROFILE)\Desktop\$($HwBuild.Name)-MacIpRegistration.txt"
 
-$RegistrationArray | convertto-csv -NoTypeInformation -Delimiter "," | % { $_ -replace '"', '' } | Out-File $tempf
+$RegistrationArray | convertto-csv -NoTypeInformation -Delimiter "," | % { $_ -replace '"', '' } | Out-File $NoFormatTempFile
 
-Get-Content $tempf | select -Skip 1 | Out-File $UserPath
+Get-Content $NoFormatTempFile | select -Skip 1 | Out-File $UserPath
 
-Remove-Item $tempf
+Remove-Item $NoFormatTempFile
 
-Read-Host -Prompt "Script Completed. Press Enter to exit."
+Read-Host -Prompt "Script Completed. Bulk Registrations written to Desktop. Press Enter to exit."
