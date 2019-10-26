@@ -17,3 +17,14 @@ robust automation of common DSS tasks.
     Update to avoid PIN screen being displayed 
 
 (Disclaimer - Tools are offered as-is and without warranty. I'm terribly sorry if it causes your rig to spontaneously combust, but we are not liable for any unexpected compute issues resulting from running the scripts above. Test these scripts in your own managed/unmanaged environment responsibly.) 
+
+# Getting Started (Devs)
+
+1. Image an unmanaged machine
+1. Install Visual Studio Code (stable)
+1. Install GitHub for Desktop (stable)
+1. Contact a Dev for onboarding
+
+# Getting Started (Technicians)
+
+1. PowerTools is currently in beta. Stay tuned for more!
