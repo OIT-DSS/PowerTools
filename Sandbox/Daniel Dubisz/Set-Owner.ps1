@@ -1,0 +1,1 @@
+﻿Get-ADGroupMember -identity "UA - SMB - Files - _Databases - Pldgload (M)" -Recursive | Get-ADUser -Property DisplayName | Select Name
