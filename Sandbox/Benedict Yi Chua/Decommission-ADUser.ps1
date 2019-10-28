@@ -128,17 +128,17 @@ $user_profiles = @()
 
 #writes the SG's for the account in log
 
-"`r`nSG's for $($unit.SamAccountName)`n`r" | Add-Content C:\temp\Dan_D\closingremarks.txt
+"`r`nSG's for $($unit.SamAccountName)`n`r" 
 
 $userSG = ([ADSISEARCHER]"samaccountname=$($unit.SamAccountName)").Findone().Properties.memberof -replace '^CN=([^,]+).+$','$1' 
 if ($userSG -eq "")
 {
-    "`r`nNo SG's for $($unit.SamAccountName) have been found.`n`r" | Add-Content C:\temp\Dan_D\closingremarks.txt
+    "`r`nNo SG's for $($unit.SamAccountName) have been found.`n`r" 
 
 }
 else
 {
-$userSG | Add-Content C:\temp\Dan_D\closingremarks.txt
+$userSG 
 }
 
 #if profile is found, creates var for it to robocopy/delete later
@@ -158,7 +158,7 @@ $user_profiles += ,$realprofiled
 if (!($user_profiles))
 {
  "`r`nno profile for the user $($LikeAccountsObject[0].Name) has been found, no robocopy or profile deletion is needed."
- inv
+ #inv
 }
 
 #if user profiles are found
@@ -193,7 +193,7 @@ if ($result)
 
 $finish = "Copied files for (AD\$TargetADUser) into the AD graveyard. Filepath: \\ad.uci.edu\UCI\OIT\Graveyard\AD\$TargetADUser. Deleted users profile. Closing ticket."
 
-$finish | Add-Content  C:\temp\Dan_D\closingremarks.txt
+$finish 
 
 remove-item -Path $realprofile -Force -Confirm
 
