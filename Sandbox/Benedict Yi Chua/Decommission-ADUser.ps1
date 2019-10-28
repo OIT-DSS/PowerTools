@@ -19,7 +19,7 @@ Write-Output "`n[ DSS Active Directory User Decommission Powershell Script ]`n"
 
 Write-Output "`n<<<`tTechnician Assignment Identification >>>`n"
 
-$ShortTechName = (whoami.exe | Out-String).replace("-wa", "").replace("ad\", "")
+$ShortTechName = (whoami.exe | Out-String).replace("-ra", "").replace("ad\", "")
 
 $FullTechName = Get-FullName -trait Name -person $ShortTechName
 
@@ -94,6 +94,22 @@ while ($True) {
 
 #################################################################################
 
+Write-Output "`n<<<`tAD User Account Active Directory Checkpoint >>>`n"
+
+# Gets Target ADUser Full Name and Related -SA, -WA, etc. accounts. Runs check against UCI OIT Main Active Directory.
+
+Write-Output "`nSearching for AD User Accounts matching $(Get-ADUser $TargetADUser).name`n"
+
+$ProfileSearchString = $TargetADUser + "*"
+
+$MatchingAccountsObject = Get-ADUser -Filter "SamAccountName -like '$ProfileSearchString'"
+
+Write-Output "`n[i] $(($MatchingAccountsObject | Measure-Object).Count) account(s) detected for $TargetADUser"
+
+Write-Host ($MatchingAccountsObject | Format-Table | Out-String)
+
+#################################################################################
+
 # Set account expiration to 90 days. Add restriction comment.
 
 Write-Output "`n<<<`tAccount Expiration and Restriction Entry>>>`n"
@@ -108,15 +124,6 @@ get-aduser -Identity $TargetADUser -Properties Description | ForEach-Object { Se
 #################################################################################
 
 
-Write-Output "`nSearching for AD User Accounts matching $(Get-ADUser $TargetADUser).name`n"
-
-$ProfileSearchString = $TargetADUser + "*"
-
-$LikeAccountsObject = Get-ADUser -Filter "SamAccountName -like '$ProfileSearchString'"
-
-($LikeAccountsObject | Measure-Object).Count
-
-"`r`n$(($LikeAccountsObject | Measure-Object).Count) account(s) detected for $TargetADUser `r"
 
 #foreach will iterate through all the code at once for each object, then run all the code for the 2nd object, etc. 
 
@@ -124,6 +131,7 @@ $LikeAccountsObject = Get-ADUser -Filter "SamAccountName -like '$ProfileSearchSt
 
 $user_profiles = @()
 
+#################################################################################
 
 
 #writes the SG's for the account in log
@@ -157,7 +165,7 @@ $user_profiles += ,$realprofiled
 
 if (!($user_profiles))
 {
- "`r`nno profile for the user $($LikeAccountsObject[0].Name) has been found, no robocopy or profile deletion is needed."
+ "`r`nno profile for the user $($MatchingAccountsObject[0].Name) has been found, no robocopy or profile deletion is needed."
  #inv
 }
 
