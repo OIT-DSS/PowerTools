@@ -15,6 +15,30 @@ Write-Output "`n[ DSS Active Directory User Decommission Powershell Script ]`n"
 
 #################################################################################
 
+# Define Function to Check LDAP if User Exists. 
+#   If user exists, declare match exists.
+#   If user does not exist, warn and note in log.
+
+function Get-FullName {
+    param (
+        $trait,
+        $person
+    )
+    $url = 'https://new-psearch.ics.uci.edu/people/' + $person
+    $re_request = Invoke-WebRequest $url
+
+    $myarray = $re_request.AllElements 
+
+    $stuff = $myarray | Where-Object { $_.outerhtml -ceq "<SPAN class=label>$trait</SPAN>" -or $_.outerHTML -ceq "<SPAN class=table_label>$trait</SPAN>" }
+ 
+
+    $name = ([array]::IndexOf($myarray, $stuff)) + 1
+
+    $myarray[$name].innerText
+}
+
+#################################################################################
+
 # Gets Technician Full Name
 
 Write-Output "`n<<<`tTechnician Assignment Identification >>>`n"
@@ -41,29 +65,6 @@ Write-Output "`n<<<`tTarget AD User Account to Decommission >>>`n"
 
 $TargetADUser = Read-Host -Prompt "Enter the SAMAccountname or UCINetID of the account being decommissioned"
 
-#################################################################################
-
-# Define Function to Check LDAP if User Exists. 
-#   If user exists, declare match exists.
-#   If user does not exist, warn and note in log.
-
-function Get-FullName {
-    param (
-        $trait,
-        $person
-    )
-    $url = 'https://new-psearch.ics.uci.edu/people/' + $person
-    $re_request = Invoke-WebRequest $url
-
-    $myarray = $re_request.AllElements 
-
-    $stuff = $myarray | Where-Object { $_.outerhtml -ceq "<SPAN class=label>$trait</SPAN>" -or $_.outerHTML -ceq "<SPAN class=table_label>$trait</SPAN>" }
- 
-
-    $name = ([array]::IndexOf($myarray, $stuff)) + 1
-
-    $myarray[$name].innerText
-}
 
 #################################################################################
 
@@ -97,6 +98,7 @@ while ($True) {
 Write-Output "`n<<<`tAD User Account Active Directory Checkpoint >>>`n"
 
 # Gets Target ADUser Full Name and Related -SA, -WA, etc. accounts. Runs check against UCI OIT Main Active Directory.
+# No action taken against -SA, -WA, etc. 
 
 Write-Output "`nSearching for AD User Accounts matching $(Get-ADUser $TargetADUser).name`n"
 
@@ -115,7 +117,7 @@ Write-Host ($MatchingAccountsObject | Format-Table | Out-String)
 Write-Output "`n<<<`tAccount Expiration and Restriction Entry>>>`n"
 
 Write-Output "`nSetting 90-day expiration...`n"
-Get-ADUser -Filter {SamAccountName -eq $TargetADUser} | Set-ADUser -AccountExpirationDate (Get-Date).AddDays(90)
+Get-ADUser -Filter { SamAccountName -eq $TargetADUser } | Set-ADUser -AccountExpirationDate (Get-Date).AddDays(90)
 
 Write-Output "`nSetting account restriction comment...`n"
 get-aduser -Identity $TargetADUser -Properties Description | ForEach-Object { Set-ADUser $_ -Description “RESTRICTED. $(Get-Date) $($FullTechName). Ticket $($ServiceNowRecord)." }
@@ -123,93 +125,73 @@ get-aduser -Identity $TargetADUser -Properties Description | ForEach-Object { Se
 
 #################################################################################
 
+# Index User Account Security Groups and remove all except for primary (Domain Users)
 
+Write-Output "`n<<<`tSecurity Group Removal>>>`n"
 
-#foreach will iterate through all the code at once for each object, then run all the code for the 2nd object, etc. 
+$SecurityGroupsObject = (Get-ADPrincipalGroupMembership -Identity $($TargetADUser) -Server (Get-ADDomain).PDCEmulator).Name | Sort-Object
 
-#creates an array to store as many user profiles as are found by searching the net id, I think it should for the most part return only 1 profile.
+Write-Host "`n[Security Groups List]`n($SecurityGroupsObject | Format-Table | Out-String)`n"
 
-$user_profiles = @()
+Write-Host "`nRemoving indexed security groups..."
 
+Get-ADUser -Identity ($TargetADUser) -Properties MemberOf | ForEach-Object {
+    $_.MemberOf | Remove-ADGroupMember -Members $_.DistinguishedName -Confirm:$false
+  }
+  
 #################################################################################
 
 
-#writes the SG's for the account in log
-
-"`r`nSG's for $($unit.SamAccountName)`n`r" 
-
-$userSG = ([ADSISEARCHER]"samaccountname=$($unit.SamAccountName)").Findone().Properties.memberof -replace '^CN=([^,]+).+$','$1' 
-if ($userSG -eq "")
-{
-    "`r`nNo SG's for $($unit.SamAccountName) have been found.`n`r" 
-
-}
-else
-{
-$userSG 
-}
-
 #if profile is found, creates var for it to robocopy/delete later
 
-if ((get-aduser $unit -properties ProfilePath | Select-Object profilepath).profilepath)
-{
-$profiled = (get-aduser $unit -properties ProfilePath | Select-Object profilepath).profilepath
-$realprofile = $profiled -replace "users", "Users-ViewAll" -replace "Profile", "" 
+if ((get-aduser $unit -properties ProfilePath | Select-Object profilepath).profilepath) {
+    $profiled = (get-aduser $unit -properties ProfilePath | Select-Object profilepath).profilepath
+    $realprofile = $profiled -replace "users", "Users-ViewAll" -replace "Profile", "" 
 
-$user_profiles += ,$realprofiled
+    $user_profiles += , $realprofiled
 }
  
 
 
 #if no user profiles are found
 
-if (!($user_profiles))
-{
- "`r`nno profile for the user $($MatchingAccountsObject[0].Name) has been found, no robocopy or profile deletion is needed."
- #inv
+if (!($user_profiles)) {
+    "`r`nno profile for the user $($MatchingAccountsObject[0].Name) has been found, no robocopy or profile deletion is needed."
+    #inv
 }
 
 #if user profiles are found
 
-if($user_profiles)
-{
+if ($user_profiles) {
 
-#creates graveyard directory
-New-Item -Path \\ad.uci.edu\UCI\OIT\Graveyard\AD -name "$TargetADUser" -ItemType 'directory'
+    #creates graveyard directory
+    New-Item -Path \\ad.uci.edu\UCI\OIT\Graveyard\AD -name "$TargetADUser" -ItemType 'directory'
 
-#takes ownership of users files so robocopy goes smoothly
-ECHO 'Y' | takeown.exe /F $realprofile /R
-
-
-Robocopy.exe $realprofile \\ad.uci.edu\UCI\OIT\Graveyard\AD\$TargetADUser /e
-
-#after robocopy's done, compares the 2 folders to see if they are the same
-
-$SourceDir = Get-ChildItem $realprofile -Recurse
-$DestDir = Get-ChildItem -Recurse -Path \\ad.uci.edu\UCI\OIT\Graveyard\AD\$TargetADUser 
+    #takes ownership of users files so robocopy goes smoothly
+    ECHO 'Y' | takeown.exe /F $realprofile /R
 
 
-$result = Compare-Object -ReferenceObject $SourceDir -DifferenceObject $DestDir
+    Robocopy.exe $realprofile \\ad.uci.edu\UCI\OIT\Graveyard\AD\$TargetADUser /e
 
-if ($result)
-{
-    Write-Host "Error in copying, please manually check the files to make sure that everything is ok."
-    invoke-item \\ad.uci.edu\UCI\OIT\Graveyard\AD\$TargetADUser
-    Invoke-Item $realprofile
-    Break
-}
+    #after robocopy's done, compares the 2 folders to see if they are the same
 
-$finish = "Copied files for (AD\$TargetADUser) into the AD graveyard. Filepath: \\ad.uci.edu\UCI\OIT\Graveyard\AD\$TargetADUser. Deleted users profile. Closing ticket."
+    $SourceDir = Get-ChildItem $realprofile -Recurse
+    $DestDir = Get-ChildItem -Recurse -Path \\ad.uci.edu\UCI\OIT\Graveyard\AD\$TargetADUser 
 
-$finish 
 
-remove-item -Path $realprofile -Force -Confirm
+    $result = Compare-Object -ReferenceObject $SourceDir -DifferenceObject $DestDir
 
-if (!(Test-Path $realprofile))
-{
-Write-Host "Account has succesfully been deleted."
-}
+    if ($result) {
+        Write-Host "Error in copying, please manually check the files to make sure that everything is ok."
+        invoke-item \\ad.uci.edu\UCI\OIT\Graveyard\AD\$TargetADUser
+        Invoke-Item $realprofile
+        Break
+    }
+
 
 }
 
 Invoke-Item
+
+
+remove-item -Path $realprofile -Force -Confirm
