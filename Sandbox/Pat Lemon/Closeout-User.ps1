@@ -21,9 +21,14 @@ $GroupList = @($GroupList | Where-Object { $_ -ne "Domain Users"})
 #Add List of groups to Telephone notes
 Set-ADUser -Identity $UserID -Replace @{info="$GroupList"}
 
+#Remove the user from groups
 foreach ($Group in $GroupList) {
     Remove-ADGroupMember -Identity $Group -Members $UserID
 }
+
+
+
+
 
 Describe  'User-Closeout' {
 
