@@ -3,9 +3,10 @@
     [string]$UserID,
     [string]$ServNowNumber
     )
+#Declaring variables
 #Sets the $TechName var to the logged in users display name. 
-#Need to work on removing "- RA"
-$TechName = ([adsi]"WinNT://$env:userdomain/$env:username,user").fullname
+[string]$TechName = ([adsi]"WinNT://$env:userdomain/$env:username,user").fullname
+$TechName = $TechName.Trim("- RA")
 $Today = (Get-Date -UFormat "%Y-%m-%d")
 $Note = "Restrictions set on $Today by $TechName, Service-Now: $ServNowNumber"
 
@@ -22,4 +23,18 @@ Set-ADUser -Identity $UserID -Replace @{info="$GroupList"}
 
 foreach ($Group in $GroupList) {
     Remove-ADGroupMember -Identity $Group -Members $UserID
+}
+
+Describe  'User-Closeout' {
+
+    Context 'Verifying user closeout process' {
+
+        It 'Restrictions Note has been set' {
+            Get-AdUser -Identity $UserID -Properties Description | Select-Object -ExpandProperty Description | Should be $Note
+        }
+        It 'List of group memberships set' {
+            Get-AdUser -Identity $UserID -Properties info | Select-Object -ExpandProperty info | Should be $GroupList
+
+        }
+    }
 }
