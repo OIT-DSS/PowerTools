@@ -15,8 +15,8 @@ Set-ADUser -Identity $UserID -Description $Note
 
 #Get the list of group memberships for the user
 $GroupList = (Get-ADPrincipalGroupMembership -Identity $UserID -Server (Get-ADDomain).PDCEmulator).Name
-#Remove "Domain Users" from the GroupList
-$GroupList = @($GroupList | Where-Object { $_ =ne "Domain Users"})
+#Remove "Domain Users" from the $Grouplist array
+$GroupList = @($GroupList | Where-Object { $_ -ne "Domain Users"})
 
 #Add List of groups to Telephone notes
 Set-ADUser -Identity $UserID -Replace @{info="$GroupList"}
