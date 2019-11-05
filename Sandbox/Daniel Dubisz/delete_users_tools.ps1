@@ -46,9 +46,7 @@ $textLabel3.Text = 'Sep Date';
 $textLabel4 = New-Object “System.Windows.Forms.Label”;
 $textLabel4.Left = 25;
 $textLabel4.Top = 130;
-
 $textLabel4.Text = 'Retiring';
-
 
 ############Define text box1 for input
 $textBox1 = New-Object “System.Windows.Forms.TextBox”;
@@ -118,11 +116,6 @@ $usersname = $textBox2.Text
 $thedate = $textBox3.Text
 $retired = $checkBox1.CheckState
 
-if($retired)
-{
-    Write-Host "done"
-}
-
 # creates temporary log file
 
 $log_file = New-TemporaryFile
@@ -136,7 +129,6 @@ Write-Output "`n<<<`tUser verification >>>`n"
 do {
 
     $userFromTicket = Get-ADUser $usersname
-
 
     $correctUserResponse = Read-Host "is $($userFromTicket.Name) the correct user as seen on the ticket? [Y\N]"
 
@@ -157,12 +149,12 @@ function Get-FullName {
         $person
     )
     $url = 'https://new-psearch.ics.uci.edu/people/' + $person
+
     $re_request = Invoke-WebRequest $url
 
     $myarray = $re_request.AllElements 
 
     $stuff = $myarray | Where-Object { $_.outerhtml -ceq "<SPAN class=label>$trait</SPAN>" -or $_.outerHTML -ceq "<SPAN class=table_label>$trait</SPAN>" }
- 
 
     $name = ([array]::IndexOf($myarray, $stuff)) + 1
 
@@ -172,8 +164,6 @@ function Get-FullName {
 ##################      User Assingment Step        ################
 
 Write-Output "`n<<<`tUser Status >>>`n"
-
-$Retirement_switch = Read-Host "Is the user retiring? [Y/N]: "
 
 if (!(Get-FullName -trait Title -person $usersname)) {
 
@@ -195,28 +185,22 @@ Write-Output "`n<<<`tAccounts Found >>>`n"
 
 "`r`n$(($accounts | Measure-Object).Count) account(s) detected for $usersname `r" | Tee-Object $log_file
 
-
 #################       User Profile Iteration      ###################
-
-
-
-$user_profiles = @()
 
 foreach ($unit in $accounts) {
 
     #writes the accounts name in log
 
-    "`r`n$($unit.Name)`n" | Tee-Object  $log_file
+    $user = $unit.SamAccountName
 
+    "`r`n$($unit.Name)`n" | Tee-Object  $log_file
 
     #writes the SG's for the account in log
 
-    "`r`nSG's for $($unit.SamAccountName)`n`r" | Tee-Object $log_file 
-
-    $userSG = ([ADSISEARCHER]"samaccountname=$($unit.SamAccountName)").Findone().Properties.memberof -replace '^CN=([^,]+).+$', '$1' 
+    "`r`nSG's for $user`n`r" | Tee-Object $log_file 
+    $userSG = ([ADSISEARCHER]"samaccountname=$user").Findone().Properties.memberof -replace '^CN=([^,]+).+$', '$1' 
     if ($userSG -eq "") {
-        "`r`nNo SG's for $($unit.SamAccountName) have been found.`n`r" | Tee-Object $log_file
-
+        "`r`nNo SG's for $user have been found.`n`r" | Tee-Object $log_file
     }
     else {
         $userSG | Tee-Object $log_file
@@ -224,57 +208,53 @@ foreach ($unit in $accounts) {
     
     # sets account to be restricted
 
-    if ($is_student) {
-        get-ADAccountExpiration -Identity $unit.SamAccountName -DateTime $thedate
-    }
-    else {
-        get-ADAccountExpiration -Identity $unit.SamAccountName -DateTime $thedate.AddDays(90)
-    }
-    
-    Set-ADUser $unit.SamAccountName -Description "Restricted; $thedate; $me; $($ticket)"
+    Set-ADUser $user -Description "Restricted; $thedate; $me; $($ticket)"
 
-    # removes user from Security groups
+    if ($unit -eq $accounts[0]) {
 
-    Get-ADUser "$($unit.SAmAccountName)" -Properties MemberOf | Select -Expand MemberOf | % { Remove-ADGroupMember $_ -member "$($unit.SAMAccountName)" }
-
-
-    #if profile is found, creates var for it to robocopy/delete later
-
-    if ((get-aduser $unit -properties ProfilePath | Select-Object profilepath).profilepath) {
         $profiled = (get-aduser $unit -properties ProfilePath | Select-Object profilepath).profilepath
         $realprofile = $profiled -replace "users", "Users-ViewAll" -replace "Profile", "" 
 
-        $user_profiles += , $realprofiled
+        if ($is_student) {
+            get-ADAccountExpiration -Identity $user -DateTime $thedate
+        }
+        elseif ($retired) {
+            Move-ADObject $unit -target ''
+            Set-ADUser $user -Description "Moved to Retirement OU; $thedate; $me; $($ticket)"
+        }
+        else {
+            get-ADAccountExpiration -Identity $user -DateTime $thedate.AddDays(90)
+        }
     }
- 
+
+    else {
+        get-ADAccountExpiration -Identity $user -DateTime $thedate
+    }
+
+    # removes user from Security groups
+
+    Get-ADUser "$user" -Properties MemberOf | Select -Expand MemberOf | % { Remove-ADGroupMember $_ -member "$user" }
 }
 
 #if no user profiles are found
 
-if (!($user_profiles)) {
+if (!($profiled)) {
     "`r`nno profile for the user $($accounts[0].Name) has been found, no robocopy or profile deletion is needed." | Tee-Object $log_file
-    notepad.exe $log_file
 }
 
 #if user profiles are found
-
-if ($user_profiles) {
-
+else {
     #creates graveyard directory
     New-Item -Path \\ad.uci.edu\UCI\OIT\Graveyard\AD -name "$usersname" -ItemType 'directory'
 
     #takes ownership of users files so robocopy goes smoothly
     ECHO 'Y' | takeown.exe /F $realprofile /R
-
-
     Robocopy.exe $realprofile \\ad.uci.edu\UCI\OIT\Graveyard\AD\$usersname /e
 
     #after robocopy's done, compares the 2 folders to see if they are the same
 
     $SourceDir = Get-ChildItem $realprofile -Recurse
     $DestDir = Get-ChildItem -Recurse -Path \\ad.uci.edu\UCI\OIT\Graveyard\AD\$usersname 
-
-
     $result = Compare-Object -ReferenceObject $SourceDir -DifferenceObject $DestDir
 
     if ($result) {
@@ -294,7 +274,6 @@ if ($user_profiles) {
     if (!(Test-Path $realprofile)) {
         Write-Host "Account has succesfully been deleted."
     }
-
 }
 
 notepad.exe $log_file
