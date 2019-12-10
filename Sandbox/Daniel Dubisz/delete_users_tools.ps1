@@ -120,8 +120,6 @@ $retired = $checkBox1.CheckState
 
 $log_file = New-TemporaryFile
 
-notepad.exe $log_file
-
 ########################        Tests authenticity of the user      ########################       
 
 Write-Output "`n<<<`tUser verification >>>`n"
@@ -181,8 +179,6 @@ $accounts = Get-ADUser -Filter "SamAccountName -like '$profileSearch'"
 
 Write-Output "`n<<<`tAccounts Found >>>`n"
 
-($accounts | Measure-Object).Count
-
 "`r`n$(($accounts | Measure-Object).Count) account(s) detected for $usersname `r" | Tee-Object $log_file
 
 #################       User Profile Iteration      ###################
@@ -218,10 +214,10 @@ foreach ($unit in $accounts) {
         if ($is_student) {
             get-ADAccountExpiration -Identity $user -DateTime $thedate
         }
-        elseif ($retired) {
-            Move-ADObject $unit -target ''
-            Set-ADUser $user -Description "Moved to Retirement OU; $thedate; $me; $($ticket)"
-        }
+        # elseif ($retired) {
+        #     Move-ADObject $unit -target ''
+        #     Set-ADUser $user -Description "Moved to Retirement OU; $thedate; $me; $($ticket)"
+        # }
         else {
             get-ADAccountExpiration -Identity $user -DateTime $thedate.AddDays(90)
         }
@@ -236,22 +232,22 @@ foreach ($unit in $accounts) {
     Get-ADUser "$user" -Properties MemberOf | Select -Expand MemberOf | % { Remove-ADGroupMember $_ -member "$user" }
 }
 
-#if no user profiles are found
+# if no user profiles are found
 
 if (!($profiled)) {
     "`r`nno profile for the user $($accounts[0].Name) has been found, no robocopy or profile deletion is needed." | Tee-Object $log_file
 }
 
-#if user profiles are found
+# if user profiles are found
 else {
-    #creates graveyard directory
+    #c reates graveyard directory
     New-Item -Path \\ad.uci.edu\UCI\OIT\Graveyard\AD -name "$usersname" -ItemType 'directory'
 
-    #takes ownership of users files so robocopy goes smoothly
+    #t akes ownership of users files so robocopy goes smoothly
     ECHO 'Y' | takeown.exe /F $realprofile /R
     Robocopy.exe $realprofile \\ad.uci.edu\UCI\OIT\Graveyard\AD\$usersname /e
 
-    #after robocopy's done, compares the 2 folders to see if they are the same
+    # after robocopy's done, compares the 2 folders to see if they are the same
 
     $SourceDir = Get-ChildItem $realprofile -Recurse
     $DestDir = Get-ChildItem -Recurse -Path \\ad.uci.edu\UCI\OIT\Graveyard\AD\$usersname 
