@@ -7,11 +7,12 @@
 Write-Output "`n[ Bitlocker Activation Powershell Script ]`n"
 
 #Active Directory Check Function
+
 #Return 0 if computer is joined to AD.UCI.EDU doomain
 #Return 1 if computer is joined to WORKGROUP
 #Return 2 if computer is joined to NEITHER (Unsupported or unique domain)
 
-function Check-Domain {
+function Test-Domain {
 
     $DomainExit = 0
 
@@ -36,9 +37,26 @@ function Check-Domain {
 }
 
 #Bitlocker / Trusted Platform Module Compatibility Check Function
+
+#Function must be executed with Administrator Privileges
+
 #Return 0 if computer is Bitlocker-ready
 #Return 1 if computer does not support Bitlocker
-function Check-Compatibility {
+function Test-Compatibility {
+
+    $CompatExit = 0
+
+    if (((get-tpm | select TpmPresent).TpmPresent -eq $True) -and ((get-tpm | select TpmReady).TpmReady -eq $True)) {
+        $CompatExit = 0
+        Write-Output "`n[i] TPM is ready for Bitlocker Activation.`n"
+    }
+
+    else {
+        $CompatExit = 1
+        Write-Output "`n[!] TPM not present or TPM not in Bitlocker-ready state.`n"
+    }
+
+    return $CompatExit
 
 }
 
@@ -47,15 +65,19 @@ function Check-Compatibility {
 #Return 0 if Active Directory OU does NOT require a PIN 
 #Return 1 if Active Directory OU REQUIRES a PIN 
 
-function Check-PINRequired {
+function Test-PINRequired {
     
+    $PINReqExit = 0
+
+    if 
+
 }
 
 #Computer Name Check Function 
 #Return 0 if name adheres to DEPT-DEVTYPE-XXX naming standard
 #Return 1 if name differs from convention
 
-function Check-Computername {
+function Test-Computername {
 
 
 }
