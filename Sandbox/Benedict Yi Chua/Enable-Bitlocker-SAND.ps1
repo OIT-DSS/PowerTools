@@ -149,13 +149,30 @@ Write-Output "`n<<< Creating Folder Structure on Removable Disk $ExtDrivePath >>
 New-Item -Path $ExtDrivePath -Name $env:computername -ItemType "directory"
 
 # Set Bitlocker Folder as Current Directory
-#Set-Location -Path ($ExtDrivePath + $env:computername) 
+Set-Location -Path ($ExtDrivePath + $env:computername) 
 
+#################################################################################
+
+# https://community.spiceworks.com/topic/1972369-powershell-script-to-enable-bitlocker
+
+#Creating the recovery key
+Start-Process 'manage-bde.exe' -ArgumentList " -protectors -add $env:SystemDrive -recoverypassword" -Verb runas -Wait
+ 
+#Adding TPM key
+Start-Process 'manage-bde.exe' -ArgumentList " -protectors -add $env:SystemDrive  -tpm" -Verb runas -Wait
+sleep -Seconds 15 #This is to give sufficient time for the protectors to fully take effect.
+ 
 if (Test-PINRequired -contains 1){
 
     Write-Output "`n<<< Activating Bitlocker with PIN >>>`n"
     
-    $SecureString = ConvertTo-SecureString "1234" -AsPlainText -Force
+    $SecureString = Read-Host -Prompt "Enter Bitlocker PIN" -AsSecureString
+
+    $BSTR = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($SecureString)            
+    $PlainConvert = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($BSTR) 
+
+    New-Item -Path . -Name ($env:computername + " PIN.txt") -ItemType "file" -Value $PlainConvert
+
     Enable-BitLocker -MountPoint "C:" -EncryptionMethod Hardware -UsedSpaceOnly -Pin $SecureString -TPMandPinProtector
 
 }
@@ -164,14 +181,21 @@ elseif (Test-PINRequired -contains 0) {
 
     Write-Output "`n<<< Activating Bitlocker without PIN >>>`n"    
 
-    $SecureString = ConvertTo-SecureString "1234" -AsPlainText -Force
-    Enable-BitLocker -MountPoint "C:" -EncryptionMethod Hardware -UsedSpaceOnly -RecoveryKeyPath ($ExtDrivePath + $env:computername) -RecoveryKeyProtecto
+    #Enabling Encryption
+
+    Start-Process 'manage-bde.exe' -ArgumentList " -on -usedspaceonly $env:SystemDrive" -Verb runas -Wait
 
 }
 
-#################################################################################
+#Getting Recovery Key GUID
+$RecoveryKeyGUID = (Get-BitLockerVolume -MountPoint $env:SystemDrive).keyprotector | where {$_.Keyprotectortype -eq 'RecoveryPassword'} | Select-Object -ExpandProperty KeyProtectorID
+ 
+#Backing Password file to the server
+#manage-bde -protectors -get C: |out-file "c:\$($env:computername -replace '\D','').txt"
+(Get-BitLockerVolume -MountPoint C).KeyProtector.recoverypassword –match ‘\S’  > ($ExtDrivePath + $env:computername) 
 
-Test-PINRequired
+sleep -Seconds 15
+
 
 #################################################################################
 
