@@ -155,15 +155,9 @@ Set-Location -Path ($ExtDrivePath + $env:computername)
 
 # https://community.spiceworks.com/topic/1972369-powershell-script-to-enable-bitlocker
 
-#Creating the recovery key
-Start-Process 'manage-bde.exe' -ArgumentList " -protectors -add $env:SystemDrive -recoverypassword" -Verb runas -Wait
- 
-#Adding TPM key
-Start-Process 'manage-bde.exe' -ArgumentList " -protectors -add $env:SystemDrive  -tpm" -Verb runas -Wait
-sleep -Seconds 15 #This is to give sufficient time for the protectors to fully take effect.
- 
 if (Test-PINRequired -contains 1){
 
+    
     Write-Output "`n<<< Activating Bitlocker with PIN >>>`n"
     
     $SecureString = Read-Host -Prompt "Enter Bitlocker PIN" -AsSecureString
@@ -173,28 +167,14 @@ if (Test-PINRequired -contains 1){
 
     New-Item -Path . -Name ($env:computername + " PIN.txt") -ItemType "file" -Value $PlainConvert
 
-    Enable-BitLocker -MountPoint "C:" -EncryptionMethod Hardware -UsedSpaceOnly -Pin $SecureString -TPMandPinProtector
+    Enable-BitLocker -MountPoint "C:" -EncryptionMethod Hardware -UsedSpaceOnly -Pin $SecureString -TPMandPinProtector -RecoveryKeyPath ($ExtDrivePath + $env:computername) 
 
 }
 
 elseif (Test-PINRequired -contains 0) {
 
-    Write-Output "`n<<< Activating Bitlocker without PIN >>>`n"    
-
-    #Enabling Encryption
-
-    Start-Process 'manage-bde.exe' -ArgumentList " -on -usedspaceonly $env:SystemDrive" -Verb runas -Wait
-
+    Enable-BitLocker -MountPoint "C:" -EncryptionMethod Hardware -UsedSpaceOnly -TpmProtector -RecoveryKeyPath ($ExtDrivePath + $env:computername) 
 }
-
-#Getting Recovery Key GUID
-$RecoveryKeyGUID = (Get-BitLockerVolume -MountPoint $env:SystemDrive).keyprotector | where {$_.Keyprotectortype -eq 'RecoveryPassword'} | Select-Object -ExpandProperty KeyProtectorID
- 
-#Backing Password file to the server
-#manage-bde -protectors -get C: |out-file "c:\$($env:computername -replace '\D','').txt"
-(Get-BitLockerVolume -MountPoint C).KeyProtector.recoverypassword –match ‘\S’  > ($ExtDrivePath + $env:computername) 
-
-sleep -Seconds 15
 
 
 #################################################################################
