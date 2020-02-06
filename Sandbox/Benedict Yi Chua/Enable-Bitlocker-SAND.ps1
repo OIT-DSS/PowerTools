@@ -19,7 +19,6 @@ function Test-Domain {
     $JoinedDomain = $(Get-ADDomain -Current LocalComputer | Select Forest).Forest.ToLower()
 
     if ($JoinedDomain -eq "ad.uci.edu") {
-        $DomainExit = 0
         Write-Output "`n[i] Computer is joined to AD.`n"
     }
 
@@ -47,7 +46,6 @@ function Test-Compatibility {
     $CompatExit = 0
 
     if (((get-tpm | select TpmPresent).TpmPresent -eq $True) -and ((get-tpm | select TpmReady).TpmReady -eq $True)) {
-        $CompatExit = 0
         Write-Output "`n[i] TPM is ready for Bitlocker Activation.`n"
     }
 
@@ -69,8 +67,22 @@ function Test-PINRequired {
     
     $PINReqExit = 0
 
-    if 
+    if (((gpresult /r /scope:computer | Out-String) -Contains "OIT - Bitlocker - Require Pin") -eq $False) {
+        Write-Output "`n[i] Organizational Unit does not require a PIN.`n"
 
+    }
+
+    elseif (((gpresult /r /scope:computer | Out-String) -Contains "OIT - Bitlocker - Require Pin") -eq $True) {
+        $PINReqExit = 1
+        Write-Output "`n[i] Organizational Unit requires a PIN.`n`t A DSS-standard PIN will be created.`n"
+        
+    }
+
+    else {
+        Write-Output "`n[!] Unable to determine PIN requirement. Check connectivity to AD.`n"
+    }
+
+    return $PINReqExit
 }
 
 #Computer Name Check Function 
