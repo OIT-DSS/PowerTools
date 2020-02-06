@@ -4,7 +4,32 @@
 # Collaborators: None
 # Last Updated 02-06-2020
 
+#################################################################################
+
 Write-Output "`n[ Bitlocker Activation Powershell Script ]`n"
+
+$InformationPreference = 'Continue'
+$WarningPreference = "Inquire"
+$ErrorPreference = 'Stop'
+
+#################################################################################
+
+# Self-elevate the script if required
+# Credit
+
+if (-Not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] 'Administrator')) {
+    if ([int](Get-CimInstance -Class Win32_OperatingSystem | Select-Object -ExpandProperty BuildNumber) -ge 6000) {
+        $CommandLine = "-File `"" + $MyInvocation.MyCommand.Path + "`" " + $MyInvocation.UnboundArguments
+        Start-Process -FilePath PowerShell.exe -Verb Runas -ArgumentList $CommandLine
+        Exit
+    }
+}
+
+
+
+#################################################################################
+
+Write-Output "`n<<< Loading Precheck Modules >>>`n"
 
 #Active Directory Check Function
 
@@ -14,25 +39,20 @@ Write-Output "`n[ Bitlocker Activation Powershell Script ]`n"
 
 function Test-Domain {
 
-    $DomainExit = 0
-
     $JoinedDomain = $(Get-ADDomain -Current LocalComputer | Select Forest).Forest.ToLower()
 
     if ($JoinedDomain -eq "ad.uci.edu") {
-        Write-Output "`n[i] Computer is joined to AD.`n"
+        Write-Information -MessageData "`n[i] Computer is joined to AD.`n"
     }
 
     elseif ($JoinedDomain -eq "workgroup") {
-        $DomainExit = 1
-        Write-Output "`n[!] Computer is joined to Local Workgroup.`n"
+        Write-Error -MessageData "`n[!] Computer is joined to Local Workgroup.`n"
     }
 
     else {
-        $DomainExit = 2
-        Write-Output "`n[!] Computer is joined to an unsupported domain.`n"
+        Write-Error -MessageData "`n[!] Computer is joined to an unsupported domain.`n"
     }
 
-    return $DomainExit
 }
 
 #Bitlocker / Trusted Platform Module Compatibility Check Function
@@ -43,18 +63,15 @@ function Test-Domain {
 #Return 1 if computer does not support Bitlocker
 function Test-Compatibility {
 
-    $CompatExit = 0
-
     if (((get-tpm | select TpmPresent).TpmPresent -eq $True) -and ((get-tpm | select TpmReady).TpmReady -eq $True)) {
-        Write-Output "`n[i] TPM is ready for Bitlocker Activation.`n"
+
+        Write-Information -MessageData "`n[i] TPM is ready for Bitlocker Activation.`n"
     }
 
     else {
-        $CompatExit = 1
-        Write-Output "`n[!] TPM not present or TPM not in Bitlocker-ready state.`n"
-    }
 
-    return $CompatExit
+        Write-Warning -MessageData "`n[!] TPM not present or TPM not in Bitlocker-ready state. Press Enter to Proceed.`n"
+    }
 
 }
 
@@ -62,90 +79,101 @@ function Test-Compatibility {
 #Check performed against PIN requirement Group Policy Object #XXXXXXXXXXX-XXXXX-XXXXXXXX
 #Return 0 if Active Directory OU does NOT require a PIN 
 #Return 1 if Active Directory OU REQUIRES a PIN 
+#Return 2 if Unable to Determine
 
 function Test-PINRequired {
-    
+
     $PINReqExit = 0
 
     if (((gpresult /r /scope:computer | Out-String) -Contains "OIT - Bitlocker - Require Pin") -eq $False) {
-        Write-Output "`n[i] Organizational Unit does not require a PIN.`n"
+        Write-Information -MessageData "`n[i] Organizational Unit does not require a PIN.`n"
 
     }
 
     elseif (((gpresult /r /scope:computer | Out-String) -Contains "OIT - Bitlocker - Require Pin") -eq $True) {
         $PINReqExit = 1
-        Write-Output "`n[i] Organizational Unit requires a PIN.`n`t A DSS-standard PIN will be created.`n"
+        Write-Information -MessageData "`n[i] Organizational Unit requires a PIN.`n`t A DSS-standard PIN will be created.`n"
         
     }
 
     else {
-        Write-Output "`n[!] Unable to determine PIN requirement. Check connectivity to AD.`n"
+        $PINReqExit = 2
+        Write-Warning -MessageData "`n[!] Unable to determine PIN requirement. Check connectivity to AD`n"
     }
 
     return $PINReqExit
 }
 
 #Computer Name Check Function 
-#Return 0 if name adheres to DEPT-DEVTYPE-XXX naming standard
+#Return 0 if name matches DEPT-DEVTYPE-XXX naming standard
 #Return 1 if name differs from convention
 
 function Test-Computername {
 
+    $CleanName = ($env:computername | Out-String).ToLower()
+
+    if ($CleanName -contains "temp") {
+
+        Write-Error -MessageData "`n[!] Computer assigned temporary name.`nRename to DEPT-DEVTYPE-XXX Standard before running activating Bitlocker`n"
+    } 
+
+    elseif ($CleanName -contains "minint") {
+
+        Write-Error -MessageData "`n[!] Computer has not been assigned a name.`n"
+    }
+
+
 
 }
 
+#################################################################################
 
+Write-Output "`n<<< Running Bitlocker Activation Preflight Checks >>>`n"
+
+# Verify device meets DSS Standards for Bitlocker Activation
+
+#Test-Domain
+Test-Computername
+Test-Compatibility
+
+Read-Host -prompt "All checks pass. Insert USB Key and press Enter to begin activation"
 
 #################################################################################
 
-#Person Lookup Function
+# Scan for external USB Disk
+$ExtDrivePath = ((get-volume | where drivetype -eq removable | foreach driveletter) + ":\")
 
-function userinfo {
-    param (
-        $trait,
-        $person
-    )
-    $url = 'https://new-psearch.ics.uci.edu/people/' + $person
-    $re_request = Invoke-WebRequest $url
+Write-Output "`n<<< Creating Folder Structure on Removable Disk $ExtDrivePath >>>`n"
 
-    $myarray = $re_request.AllElements 
+# Create Bitlocker Folder
+New-Item -Path $ExtDrivePath -Name $env:computername -ItemType "directory"
 
-    $stuff = $myarray | Where-Object { $_.outerhtml -ceq "<SPAN class=label>$trait</SPAN>" -or $_.outerHTML -ceq "<SPAN class=table_label>$trait</SPAN>" }
- 
+# Set Bitlocker Folder as Current Directory
+#Set-Location -Path ($ExtDrivePath + $env:computername) 
 
-    $name = ([array]::IndexOf($myarray, $stuff)) + 1
+if (Test-PINRequired -contains 1){
 
-    $myarray[$name].innerText
+    Write-Output "`n<<< Activating Bitlocker with PIN >>>`n"
+    
+    $SecureString = ConvertTo-SecureString "1234" -AsPlainText -Force
+    Enable-BitLocker -MountPoint "C:" -EncryptionMethod Hardware -UsedSpaceOnly -Pin $SecureString -TPMandPinProtector
+
+}
+
+elseif (Test-PINRequired -contains 0) {
+
+    Write-Output "`n<<< Activating Bitlocker without PIN >>>`n"    
+
+    $SecureString = ConvertTo-SecureString "1234" -AsPlainText -Force
+    Enable-BitLocker -MountPoint "C:" -EncryptionMethod Hardware -UsedSpaceOnly -RecoveryKeyPath ($ExtDrivePath + $env:computername) -RecoveryKeyProtecto
+
 }
 
 #################################################################################
 
-#Gets Technician Full Name
-
-Write-Output "`n<<<`tTechnician Assignment Identification >>>`n"
-
-$ShortName = (whoami.exe | Out-String).replace("-wa","").replace("ad\","")
-
-$FullTechName = userinfo -trait Name -person $ShortName
-
-Write-Output "`n[i] Technician Identified in AD`n[i] Registering as $FullTechName`n"
-
-#################################################################################
-
-#Gets Baseline System Information
-
-Write-Output "`n<<<`tSystem Baseline Information >>>`n"
-
-$SystemSerial = $(Get-WmiObject -Class win32_bios | select SerialNumber).serialNumber
-
-Write-Output "`n[System Serial Number: $SystemSerial]"
-
-$HwBuild = Get-WmiObject -Class:Win32_ComputerSystem | Select Name,Manufacturer,Model
-
-Write-Output "[System Name: $($HwBuild.Name)]`n[System Model: $($HwBuild.Manufacturer) $($HwBuild.Model)]`n"
-
+Test-PINRequired
 
 #################################################################################
 
 
-Read-Host -Prompt "Script Completed. Please transfer folder to DSS Bitlocker Network Directory. Press Enter to exit."
+Read-Host "Script Completed. Please transfer folder to DSS Bitlocker Network Directory. Press Enter to exit."
