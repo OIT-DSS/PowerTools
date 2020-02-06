@@ -169,19 +169,21 @@ if ($PinFlag -eq 1){
 
     New-Item -Path . -Name ($env:computername + " PIN.txt") -ItemType "file" -Value $PlainConvert
 
-    Enable-BitLocker -MountPoint "C:" -UsedSpaceOnly -Pin $SecureString -TPMandPinProtector -RecoveryKeyPath ($ExtDrivePath + $env:computername) 
+    Enable-BitLocker -MountPoint "C:\" -UsedSpaceOnly -Pin $SecureString -TPMandPinProtector -RecoveryKeyPath ($ExtDrivePath + $env:computername) 
 
 }
 
 elseif ($PinFlag -eq 0) {
 
     Write-Output "`n<<< Activating Bitlocker without PIN >>>`n"
-    Enable-BitLocker -MountPoint "C:" -UsedSpaceOnly -TpmProtector -RecoveryKeyPath ($ExtDrivePath + $env:computername) 
+
+    Enable-BitLocker -MountPoint "C:\" -UsedSpaceOnly -TpmProtector -RecoveryKeyPath ($ExtDrivePath + $env:computername) 
 }
 
 # Find and Save Bitlocker Recovery Keys to Drive
 
-New-Item -Path . -Name ($env:computername + " Recovery Information.txt") -ItemType "file" -Value ((Get-BitLockerVolume -MountPoint C).KeyProtector)
+$RecoveryInfo = ((Get-BitLockerVolume -MountPoint C).KeyProtector) | Out-String 
+New-Item -Path . -Name ($env:computername + " Recovery Information.txt") -ItemType "file" -Value $RecoveryInfo
 
 #################################################################################
 
