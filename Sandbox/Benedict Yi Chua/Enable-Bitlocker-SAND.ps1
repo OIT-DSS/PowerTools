@@ -39,7 +39,7 @@ Write-Output "`n<<< Loading Precheck Modules >>>`n"
 
 function Test-Domain {
 
-    $JoinedDomain = $(Get-ADDomain -Current LocalComputer | Select Forest).Forest.ToLower()
+    $JoinedDomain = $env:USERDNSDOMAIN
 
     if ($JoinedDomain -eq "ad.uci.edu") {
         Write-Information -MessageData "`n[i] Computer is joined to AD.`n"
@@ -132,9 +132,11 @@ Write-Output "`n<<< Running Bitlocker Activation Preflight Checks >>>`n"
 
 # Verify device meets DSS Standards for Bitlocker Activation
 
-#Test-Domain
+Test-Domain
 Test-Computername
 Test-Compatibility
+
+$PinFlag = Test-PINRequired
 
 Read-Host -prompt "All checks pass. Insert USB Key and press Enter to begin activation"
 
@@ -155,7 +157,7 @@ Set-Location -Path ($ExtDrivePath + $env:computername)
 
 # https://community.spiceworks.com/topic/1972369-powershell-script-to-enable-bitlocker
 
-if (Test-PINRequired -contains 1){
+if ($PinFlag -eq 1){
 
     
     Write-Output "`n<<< Activating Bitlocker with PIN >>>`n"
@@ -167,15 +169,19 @@ if (Test-PINRequired -contains 1){
 
     New-Item -Path . -Name ($env:computername + " PIN.txt") -ItemType "file" -Value $PlainConvert
 
-    Enable-BitLocker -MountPoint "C:" -EncryptionMethod Hardware -UsedSpaceOnly -Pin $SecureString -TPMandPinProtector -RecoveryKeyPath ($ExtDrivePath + $env:computername) 
+    Enable-BitLocker -MountPoint "C:" -UsedSpaceOnly -Pin $SecureString -TPMandPinProtector -RecoveryKeyPath ($ExtDrivePath + $env:computername) 
 
 }
 
-elseif (Test-PINRequired -contains 0) {
+elseif ($PinFlag -eq 0) {
 
-    Enable-BitLocker -MountPoint "C:" -EncryptionMethod Hardware -UsedSpaceOnly -TpmProtector -RecoveryKeyPath ($ExtDrivePath + $env:computername) 
+    Write-Output "`n<<< Activating Bitlocker without PIN >>>`n"
+    Enable-BitLocker -MountPoint "C:" -UsedSpaceOnly -TpmProtector -RecoveryKeyPath ($ExtDrivePath + $env:computername) 
 }
 
+# Find and Save Bitlocker Recovery Keys to Drive
+
+New-Item -Path . -Name ($env:computername + " Recovery Information.txt") -ItemType "file" -Value ((Get-BitLockerVolume -MountPoint C).KeyProtector)
 
 #################################################################################
 
