@@ -76,7 +76,7 @@ function Test-Compatibility {
 }
 
 #Organizational Unit PIN Check Function
-#Check performed against PIN requirement Group Policy Object #XXXXXXXXXXX-XXXXX-XXXXXXXX
+#Check performed against PIN requirement Group Policy Report
 #Return 0 if Active Directory OU does NOT require a PIN 
 #Return 1 if Active Directory OU REQUIRES a PIN 
 #Return 2 if Unable to Determine
