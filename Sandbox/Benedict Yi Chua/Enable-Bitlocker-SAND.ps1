@@ -150,8 +150,12 @@ Write-Output "`n<<< Creating Folder Structure on Removable Disk $ExtDrivePath >>
 # Create Bitlocker Folder
 New-Item -Path $ExtDrivePath -Name $env:computername -ItemType "directory"
 
+# Update external Path
+$ExtDrivePath = ($ExtDrivePath + $env:computername)
+
 # Set Bitlocker Folder as Current Directory
-Set-Location -Path ($ExtDrivePath + $env:computername) 
+Set-Location -Path $ExtDrivePath
+
 
 #################################################################################
 
@@ -169,7 +173,7 @@ if ($PinFlag -eq 1){
 
     New-Item -Path . -Name ($env:computername + " PIN.txt") -ItemType "file" -Value $PlainConvert
 
-    Enable-BitLocker -MountPoint c: -EncryptionMethod Aes256 -UsedSpaceOnly -Pin $SecureString -TPMandPinProtector -RecoveryKeyPath ($ExtDrivePath + $env:computername)
+    Enable-BitLocker -MountPoint c: -EncryptionMethod Aes256 -UsedSpaceOnly -Pin $SecureString -TPMandPinProtector -RecoveryKeyPath $ExtDrivePath
 
 }
 
@@ -177,10 +181,13 @@ elseif ($PinFlag -eq 0) {
 
     Write-Output "`n<<< Activating Bitlocker without PIN >>>`n"
 
-    Enable-Bitlocker -MountPoint c: -UsedSpaceOnly -SkipHardwareTest -RecoveryKeyPath ($ExtDrivePath + $env:computername) -RecoveryKeyProtector 
+    Enable-Bitlocker -MountPoint c: -UsedSpaceOnly -SkipHardwareTest -RecoveryKeyPath $ExtDrivePath -RecoveryKeyProtector 
 }
 
 # Find and Save Bitlocker Recovery Keys to Drive
+$RecoveryFileName = ($env:computername + " PIN.txt")
+
+(Get-BitLockerVolume -MountPoint c:).KeyProtector > $ExtDrivePath\$RecoveryFileName
 
 #$RecoveryInfo = ((Get-BitLockerVolume -MountPoint C).KeyProtector) | Out-String 
 #New-Item -Path . -Name ($env:computername + " Recovery Information.txt") -ItemType "file" -Value $RecoveryInfo
