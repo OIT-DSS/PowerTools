@@ -181,11 +181,11 @@ elseif ($PinFlag -eq 0) {
 
     Write-Output "`n<<< Activating Bitlocker without PIN >>>`n"
 
-    Enable-Bitlocker -MountPoint c: -UsedSpaceOnly -SkipHardwareTest -RecoveryKeyPath $ExtDrivePath -RecoveryKeyProtector 
+    Enable-Bitlocker -MountPoint c: -EncryptionMethod Aes256 -UsedSpaceOnly -SkipHardwareTest -RecoveryKeyPath $ExtDrivePath -RecoveryKeyProtector 
 }
 
 # Find and Save Bitlocker Recovery Keys to Drive
-$RecoveryFileName = ($env:computername + " PIN.txt")
+$RecoveryFileName = ($env:computername + " Recovery Key.txt")
 
 (Get-BitLockerVolume -MountPoint c:).KeyProtector > $ExtDrivePath\$RecoveryFileName
 
