@@ -182,8 +182,10 @@ elseif ($PinFlag -eq 0) {
 
 # Find and Save Bitlocker Recovery Keys to Drive
 
-$RecoveryInfo = ((Get-BitLockerVolume -MountPoint C).KeyProtector) | Out-String 
-New-Item -Path . -Name ($env:computername + " Recovery Information.txt") -ItemType "file" -Value $RecoveryInfo
+#$RecoveryInfo = ((Get-BitLockerVolume -MountPoint C).KeyProtector) | Out-String 
+#New-Item -Path . -Name ($env:computername + " Recovery Information.txt") -ItemType "file" -Value $RecoveryInfo
+
+# Sauce: https://lazyadmin.nl/it/enable-bitlocker-windows-10/
 
 #################################################################################
 
