@@ -169,7 +169,7 @@ if ($PinFlag -eq 1){
 
     New-Item -Path . -Name ($env:computername + " PIN.txt") -ItemType "file" -Value $PlainConvert
 
-    Enable-BitLocker -MountPoint "C:\" -UsedSpaceOnly -Pin $SecureString -TPMandPinProtector -RecoveryKeyPath ($ExtDrivePath + $env:computername) 
+    Enable-BitLocker -MountPoint c: -EncryptionMethod Aes256 -UsedSpaceOnly -Pin $SecureString -TPMandPinProtector -RecoveryKeyPath ($ExtDrivePath + $env:computername)
 
 }
 
@@ -177,7 +177,7 @@ elseif ($PinFlag -eq 0) {
 
     Write-Output "`n<<< Activating Bitlocker without PIN >>>`n"
 
-    Enable-BitLocker -MountPoint "C:\" -UsedSpaceOnly -TpmProtector -RecoveryKeyPath ($ExtDrivePath + $env:computername) 
+    Enable-Bitlocker -MountPoint c: -UsedSpaceOnly -SkipHardwareTest -RecoveryKeyPath ($ExtDrivePath + $env:computername) -RecoveryKeyProtector 
 }
 
 # Find and Save Bitlocker Recovery Keys to Drive
