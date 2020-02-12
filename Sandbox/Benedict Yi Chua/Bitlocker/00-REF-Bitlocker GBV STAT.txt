@@ -7,3 +7,35 @@ VolumeType      Mount CapacityGB VolumeStatus           Encryption KeyProtector 
                 Point                                   Percentage                           Enabled    Status
 ----------      ----- ---------- ------------           ---------- ------------              ---------- ----------
 OperatingSystem C:        471.56 EncryptionInProgress   90         {Tpm, RecoveryPassword}              Off
+
+
+Enable-BitLocker
+      [-MountPoint] <String[]> * C:
+      [-EncryptionMethod <BitLockerVolumeEncryptionMethodOnEnable>] * XtsAes128
+      [-HardwareEncryption]
+      [-SkipHardwareTest]
+      [-UsedSpaceOnly] *
+      [-RecoveryKeyProtector]
+      [-RecoveryPasswordProtector] *
+      [-TpmProtector] *
+      [-RecoveryKeyPath] <String>
+      [-WhatIf]
+      [-Confirm]*
+      [<CommonParameters>]
+
+
+-Pin
+
+Specifies a secure string object that contains a PIN. BitLocker uses the PIN specified, with other data, as a protector for the volume encryption key.
+
+[!] Only use on OU with PIN
+
+
+-RecoveryPassword
+
+Specifies a recovery password. If you do not specify this parameter, but you do include the RecoveryPasswordProtector parameter, the cmdlet creates a random password. 
+You can enter a 48-digit password. The password specified or created acts as a protector for the volume encryption key.
+
+-TpmProtector
+
+Indicates that BitLocker uses the TPM as a protector for the volume encryption key.

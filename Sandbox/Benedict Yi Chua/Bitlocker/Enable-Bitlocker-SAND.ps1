@@ -138,14 +138,14 @@ Test-Compatibility
 
 $PinFlag = Test-PINRequired
 
-Read-Host -prompt "All checks pass. Insert USB Key and press Enter to begin activation"
+Read-Host -prompt "> All checks pass. Insert USB Key and press Enter to begin activation"
 
 #################################################################################
 
 # Scan for external USB Disk
 $ExtDrivePath = ((get-volume | where drivetype -eq removable | foreach driveletter) + ":\")
 
-Write-Output "`n<<< Creating Folder Structure on Removable Disk $ExtDrivePath >>>`n"
+Write-Output "`n> Creating Folder Structure on Removable Disk $ExtDrivePath `n"
 
 # Create Bitlocker Folder
 New-Item -Path $ExtDrivePath -Name $env:computername -ItemType "directory"
@@ -159,42 +159,46 @@ Set-Location -Path $ExtDrivePath
 
 #################################################################################
 
+Write-Output "`n<<< Activating Bitlocker >>>`n"
+
+# Activation Sectio
+
 # https://community.spiceworks.com/topic/1972369-powershell-script-to-enable-bitlocker
 
 if ($PinFlag -eq 1){
 
     
-    Write-Output "`n<<< Activating Bitlocker with PIN >>>`n"
+    Write-Output "`n> Activating Bitlocker with PIN`n"
     
     $SecureString = Read-Host -Prompt "Enter Bitlocker PIN" -AsSecureString
 
     $BSTR = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($SecureString)            
     $PlainConvert = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($BSTR) 
 
+    Write-Output "`n> Backing Up Device PIN to External USB`n"
+
     New-Item -Path . -Name ($env:computername + " PIN.txt") -ItemType "file" -Value $PlainConvert
 
-    Enable-BitLocker -MountPoint c: -EncryptionMethod Aes256 -UsedSpaceOnly -Pin $SecureString -TPMandPinProtector -RecoveryKeyPath $ExtDrivePath
+    Enable-BitLocker -MountPoint c: -EncryptionMethod XtsAes128 -UsedSpaceOnly -Pin $SecureString -RecoveryPasswordProtector -TPMandPinProtector -Confirm
 
 }
 
 elseif ($PinFlag -eq 0) {
 
-    Write-Output "`n<<< Activating Bitlocker without PIN >>>`n"
+    Write-Output "`n> Activating Bitlocker without PIN`n"
 
-    Enable-Bitlocker -MountPoint c: -EncryptionMethod Aes256 -UsedSpaceOnly -SkipHardwareTest -RecoveryKeyPath $ExtDrivePath -RecoveryKeyProtector 
+    Enable-Bitlocker -MountPoint C: -EncryptionMethod XtsAes128 -UsedSpaceOnly -RecoveryPasswordProtector -TpmProtector -Confirm
 }
 
 # Find and Save Bitlocker Recovery Keys to Drive
-$RecoveryFileName = ($env:computername + " Recovery Key.txt")
 
-(Get-BitLockerVolume -MountPoint c:).KeyProtector > $ExtDrivePath\$RecoveryFileName
+Write-Output "`n> Backing Up Bitlocker Recovery Key to External USB`n"
 
-#$RecoveryInfo = ((Get-BitLockerVolume -MountPoint C).KeyProtector) | Out-String 
-#New-Item -Path . -Name ($env:computername + " Recovery Information.txt") -ItemType "file" -Value $RecoveryInfo
+$RecoveryFileName = ($env:computername + "Bitlocker Recovery Key.txt")
 
-# Sauce: https://lazyadmin.nl/it/enable-bitlocker-windows-10/
+manage-bde -protectors -get C: -type RecoveryPassword > $ExtDrivePath\$RecoveryFileName
 
 #################################################################################
 
 
-Read-Host "Script Completed. Please transfer folder to DSS Bitlocker Network Directory. Press Enter to exit."
+Read-Host "[!] Script Completed. Please transfer folder to DSS Bitlocker Network Directory. Press Enter to exit."
