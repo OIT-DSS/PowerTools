@@ -19,7 +19,7 @@ $ErrorPreference = 'Stop'
 
 if (-Not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] 'Administrator')) {
     if ([int](Get-CimInstance -Class Win32_OperatingSystem | Select-Object -ExpandProperty BuildNumber) -ge 6000) {
-        $CommandLine = "ep Bypass -File `"" + $MyInvocation.MyCommand.Path + "`" " + $MyInvocation.UnboundArguments
+        $CommandLine = "-File `"" + $MyInvocation.MyCommand.Path + "`" " + $MyInvocation.UnboundArguments
         Start-Process -FilePath PowerShell.exe -Verb Runas -ArgumentList $CommandLine
         Exit
     }
@@ -179,7 +179,7 @@ if ($PinFlag -eq 1){
 
     New-Item -Path . -Name ($env:computername + " PIN.txt") -ItemType "file" -Value $PlainConvert
 
-    Enable-BitLocker -MountPoint c: -EncryptionMethod XtsAes128 -UsedSpaceOnly -Pin $SecureString -RecoveryPasswordProtector -TPMandPinProtector -Confirm
+    Enable-Bitlocker -MountPoint "c:" -EncryptionMethod XtsAes128 -UsedSpaceOnly -RecoveryPasswordProtector
 
 }
 
@@ -187,7 +187,7 @@ elseif ($PinFlag -eq 0) {
 
     Write-Output "`n> Activating Bitlocker without PIN`n"
 
-    Enable-Bitlocker -MountPoint C: -EncryptionMethod XtsAes128 -UsedSpaceOnly -RecoveryPasswordProtector -TpmProtector -Confirm
+    Enable-Bitlocker -MountPoint "c:" -EncryptionMethod XtsAes128 -UsedSpaceOnly -RecoveryPasswordProtector
 }
 
 # Find and Save Bitlocker Recovery Keys to Drive
