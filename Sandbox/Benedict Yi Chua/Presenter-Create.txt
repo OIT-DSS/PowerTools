@@ -1,9 +1,0 @@
-$Password = Read-Host -AsSecureString
-
-New-LocalUser "Presenter" -Password $Password -FullName "Presenter" -Description "Presenter" -Confirm
-
-Enable-LocalUser -Name "Presenter"
-
-Add-LocalGroupMember -Group "Users" -Member "Presenter"
-
-Restart-Computer

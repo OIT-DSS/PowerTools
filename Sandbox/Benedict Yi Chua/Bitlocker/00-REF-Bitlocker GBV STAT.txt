@@ -1,0 +1,9 @@
+PS C:\windows\system32> Get-BitlockerVolume -MountPoint C:
+
+
+   ComputerName: FM-IOB-L-050
+
+VolumeType      Mount CapacityGB VolumeStatus           Encryption KeyProtector              AutoUnlock Protection
+                Point                                   Percentage                           Enabled    Status
+----------      ----- ---------- ------------           ---------- ------------              ---------- ----------
+OperatingSystem C:        471.56 EncryptionInProgress   90         {Tpm, RecoveryPassword}              Off

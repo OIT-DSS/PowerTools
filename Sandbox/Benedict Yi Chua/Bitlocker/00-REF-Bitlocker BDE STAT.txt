@@ -1,0 +1,26 @@
+Windows PowerShell
+Copyright (C) Microsoft Corporation. All rights reserved.
+
+PS C:\windows\system32> manage-bde -status c:
+BitLocker Drive Encryption: Configuration Tool version 10.0.17763
+Copyright (C) 2013 Microsoft Corporation. All rights reserved.
+
+Volume C: [Windows]
+[OS Volume]
+
+    Size:                 471.56 GB
+    BitLocker Version:    2.0
+    Conversion Status:    Encryption in Progress
+    Percentage Encrypted: 87.6%
+    Encryption Method:    XTS-AES 128
+    Protection Status:    Protection Off
+    Lock Status:          Unlocked
+    Identification Field: Unknown
+    Key Protectors:
+        TPM
+        Numerical Password
+
+PS C:\windows\system32>
+
+
+

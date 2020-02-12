@@ -1,0 +1,10 @@
+PS Scripting Dell BIOS Provider Module 
+
+install-module -Name DellBIOSProvider
+
+Get-ExecutionPolicy
+
+Set-ExecutionPolicy
+
+
+install-module -Name DellBIOSProvider
