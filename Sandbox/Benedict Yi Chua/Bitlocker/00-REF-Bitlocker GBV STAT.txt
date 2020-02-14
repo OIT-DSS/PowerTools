@@ -22,13 +22,14 @@ Enable-BitLocker
       [-WhatIf]
       [-Confirm]*
       [<CommonParameters>]
+      
+Enable
 
+Enable-Bitlocker -MountPoint C: -EncryptionMethod XtsAes128 -UsedSpaceOnly -RecoveryPasswordProtector -TpmProtector -Confirm
 
--Pin
+Backup 
 
-Specifies a secure string object that contains a PIN. BitLocker uses the PIN specified, with other data, as a protector for the volume encryption key.
-
-[!] Only use on OU with PIN
+manage-bde- -protectors -get C: -type RecoveryPassword > D:\Directory
 
 
 -RecoveryPassword
