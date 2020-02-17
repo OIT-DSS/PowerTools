@@ -111,7 +111,7 @@ function Set-IP() {
 
     }
 
-    elseif ($IPAddress -eq "" -or $null -eq $IPAddress){
+    elseif ($IPAddress -eq "" -or $null -eq $IPAddress) {
 
         Write-Information -MessageData "- Blank IP"
         return $IPAddress
