@@ -7,7 +7,7 @@ robust automation of common DSS tasks.
 # In the Toolbox
 
 * Create-Presenter | Two flavors of the same script. Creates a local presenter account with the option of autologon. 
-* Register-MAC-2 | A device-agnostic script to automatically gather network interface information. Can be run without a network connection. Outputs a text file for easy cut-and-paste bulk registration of MAC addresses 
+* **NEW!** Register-MAC-2 | A device-agnostic script to automatically gather network interface information. Can be run without a network connection. Outputs a text file for easy cut-and-paste bulk registration of MAC addresses 
 
 # In the Lab 
 
