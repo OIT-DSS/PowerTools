@@ -9,3 +9,65 @@ wmic computersystem get model,name,manufacturer,systemtype
 # Gets MAC Address (tested desktop only)
 
 Get-NetAdapter | select Name,InterfaceDescription,Status,MacAddress
+
+Information Flow 
+
+Get Technician Name 
+
+    Offline / Online Check Function | Input None | Output Technician Name
+        Offline if Default User is rfelange or installer 
+
+            Manual Prompt for Name + Confirm
+            Return entered name 
+
+        Online if Default User to lowercase contains "-wa" 
+
+            Initiate webquery for display name 
+            Return full name
+
+
+
+
+
+# Create Registration Object 
+
+# Input: Object Type 
+# Output: Array Object 
+
+function New-RegistrationObject($ObjectType) { 
+
+    $IPAddress = '' #Blank for this stage
+    $AdminUCINetID = "ADCOMDSS"
+
+    Write-Information -MessageData "`n[i] Adding entry for $ObjectType..."
+
+    $RegistrationObject = New-Object PSObject
+
+    $RegistrationObject | Add-Member -MemberType NoteProperty -Name MACAddress -Value $($line.MacAddress)
+    $RegistrationObject | Add-Member -MemberType NoteProperty -Name IPAddress -Value $IPAddress
+    $RegistrationObject | Add-Member -MemberType NoteProperty -Name UCINetID -Value $AdminUCINetID
+    $RegistrationObject | Add-Member -MemberType NoteProperty -Name Comment -Value "Computername: $($global:HwBuild.Name). Model: $($global:HwBuild.Model). SN# $global:SystemSerial. $ObjectType. Entered by $global:TechName"
+
+    $global:RegistrationArray += $RegistrationObject
+    Write-Information -MessageData "`n[i] Entry Added."
+
+
+}
+
+$Results = @()
+$Results += New-Object PSObject -Property @{
+    "Name" = "John"
+    "Age" = 21}
+$Results += New-Object PSObject -Property @{
+    "Name" = "Jane"
+    "Age" = 23}
+
+
+
+$Person1 = [PSCustomObject]@{
+Name = 'John Doe'
+Age = 30
+
+}
+# You would do this:
+$Person1 | Add-Member -Name 'Height' -Value "6'11`"" -MemberType NoteProperty

@@ -1,24 +1,83 @@
-﻿# Script Name: Register-Address-Field
-# Description: Device-agnostic MAC Field registration for DSS-supported Laptops and Desktops 
-# Author: Benedict Yi Chua
+﻿# Script Name:  Register-MAC-2
+# Description:  Device-agnostic MAC and IP registration for DSS-supported Laptops and Desktops
+#               Dynamic adjustment for field and office use.
+# Author:       Benedict Yi Chua
 # Collaborators: None
-# Last Updated 02-24-2020
+# Last Updated  02-16-2020
 
 #################################################################################
 
-Write-Output "`n[ Mobile Access RegistrationScript - Field Mode ]`n"
+Write-Information -MessageData "`n[ Mobile Access Registration Script - Advanced ]`n"
+
+# DEBUG | $null = Start-Transcript "$($env:USERPROFILE)\Desktop\Register-MAC-Debug.log"
 
 $InformationPreference = 'Continue'
-$WarningPreference = "Inquire"
-$ErrorPreference = 'Stop'
+$WarningPreference = "Continue"
+$ErrorActionPreference = 'Stop'
 
 #################################################################################
 
-#String Compare Function
 
+# Person Lookup Function
+function Get-DirectoryEntry {
+    param (
+        $trait,
+        $person
+    )
+    $url = 'https://new-psearch.ics.uci.edu/people/' + $person
+    $re_request = Invoke-WebRequest $url
+
+    $myarray = $re_request.AllElements 
+
+    $stuff = $myarray | Where-Object { $_.outerhtml -ceq "<SPAN class=label>$trait</SPAN>" -or $_.outerHTML -ceq "<SPAN class=table_label>$trait</SPAN>" }
+
+    $name = ([array]::IndexOf($myarray, $stuff)) + 1
+
+    $myarray[$name].innerText
+}
+
+#################################################################################
+
+# Current Technician Name Retrieval Function
+# Uses UCI Directory if online, uses manual entry if offline 
+
+function Get-Techname() {
+
+    if ($env:UserName.ToLower() -eq "installer" -OR $env:UserName.ToLower() -eq "rfelange" -OR $env:UserName.ToLower() -eq "servi") {
+
+        Write-Information -MessageData "- Registering Offline"
+        $TechName = Compare-String("your name")
+        return $TechName
+
+    }
+
+    elseif ($env:UserName.ToLower() -contains "-wa") {
+
+        Write-Information -MessageData "- Registering Online"
+        $TechName = ($env:UserName).replace("-wa", "").replace("ad\", "")
+        $TechName = Get-DirectoryEntry -trait Name -person $TechName
+        return $TechName
+
+    } 
+    
+    else {
+        Write-Error -Message ("[!] Could not register technician. Contact PowerTools Developers.")
+    }
+
+}
+
+#################################################################################
+
+# String Compare Function
 function Compare-String($ServiceName) { 
 
     $StringOne = Read-Host -Prompt "Enter $ServiceName"
+
+    if ($null -eq $StringOne) {
+
+        return $StringOne
+
+    } 
     $StringTwo = Read-Host -Prompt "Re-enter $ServiceName"
 
     if ($StringOne -eq $StringTwo) {
@@ -38,193 +97,158 @@ function Compare-String($ServiceName) {
 
 #################################################################################
 
-#Checks IP Address for Validity. Will ask for re-entry.
+# IP Address Check Function
 function Set-IP() {
 
     $ValidIPString = "^([1-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])(\.([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])){3}$"
     
     $IPAddress = Compare-String("IP Address")
 
-    if ($IPAddress -notmatch $ValidIPString) {
+    if ($IPAddress -match $ValidIPString) {
+
+        Write-Information -MessageData "- Valid IP"
+        return $IPAddress
+
+    }
+
+    elseif ($IPAddress -eq "" -or $null -eq $IPAddress){
+
+        Write-Information -MessageData "- Blank IP"
+        return $IPAddress
+
+    }
+
+    else {
 
         Write-Warning -Message "`n[!] Invalid IP Address. Check entry and try again.`n"
         Set-IP($IPAddress)
 
     }
-
-    else {
-        return $IPAddress
-    }
 }
 
 #################################################################################
 
-#Gets Technician Full Name
+# Interface Documentation / Create Object Function
+function New-RegistrationObject($ObjectLine, $ObjectType) { 
 
-Write-Output "`n<<<`tTechnician Assignment Identification >>>`n"
+    $IPAddress = '' #Blank for this stage
+    $AdminUCINetID = "ADCOMDSS"
 
-$TechnicianName = Compare-String("your name")
+    $RegistrationObject = New-Object PSObject
 
-Write-Output "`n[i] Registering as $TechnicianName`n"
+    $RegistrationObject | Add-Member -MemberType NoteProperty -Name MACAddress -Value $($ObjectLine.MacAddress)
+    $RegistrationObject | Add-Member -MemberType NoteProperty -Name IPAddress -Value $IPAddress
+    $RegistrationObject | Add-Member -MemberType NoteProperty -Name UCINetID -Value $AdminUCINetID
+    $RegistrationObject | Add-Member -MemberType NoteProperty -Name Comment -Value "Computername: $($HwBuild.Name). Model: $($HwBuild.Model). SN# $($HwBuild.SerialNumber). $ObjectType. Entered by $TechName."
 
-#################################################################################
+    $global:RegistrationArray += $RegistrationObject
 
-#Gets Baseline System Information
-
-Write-Output "`n<<<`tSystem Baseline Information >>>`n"
-
-$SystemSerial = $(Get-WmiObject -Class win32_bios | select SerialNumber).serialNumber
-
-Write-Output "`n[System Serial Number: $SystemSerial]"
-
-$HwBuild = Get-WmiObject -Class:Win32_ComputerSystem | Select Name,Manufacturer,Model
-
-Write-Output "[System Name: $($HwBuild.Name)]`n[System Model: $($HwBuild.Manufacturer) $($HwBuild.Model)]`n"
-
+}
 
 #################################################################################
 
+#Get Technician Full Name
+
+Write-Information -MessageData "`n<<<`tTechnician Assignment Identification >>>`n"
+
+$TechName = Get-Techname
+
+Write-Information -MessageData "`n- Registering as $TechName`n"
+
+#Get Baseline System Information
+
+Write-Information -MessageData "`n<<<`tSystem Baseline Information >>>`n"
+
+$HwBuild = Get-WmiObject -Class:Win32_ComputerSystem | Select-Object Name, Manufacturer, Model
+$SystemSerial = $(Get-WmiObject -Class win32_bios | Select-Object SerialNumber).serialNumber
+$HwBuild | Add-Member -Name 'SystemSerial' -Value $SystemSerial -MemberType NoteProperty
+
+Write-Information -MessageData $HwBuild | Format-Table
+
+#################################################################################
 
 #Get Network Hardware Information
 
-Write-Output "`n<<<`tNetwork Hardware Information Gathering >>>`n"
+Write-Information -MessageData "`n<<<`tNetwork Hardware Information Gathering >>>`n"
 
 #Create array with Network Adapter information
 
-$NetworkHw = Get-NetAdapter | select MacAddress,Name,InterfaceDescription,Status
+$NetworkHw = Get-NetAdapter | Select-Object MacAddress, Status, Name, InterfaceDescription | Sort-Object -Property Status -Descending
 
-#Sort array so current active adapter is on top
-
-$NetworkHw =  $NetworkHw | Sort-Object -Property Status -Descending
+Write-Information -MessageData $NetworkHw | Format-Table
 
 #Create blank array to fill with final information
-
-$RegistrationArray = @() 
-
-#Set constant values for registration
-
-$AdminUCINetID = "ADCOMDSS"
-$IPAddress = '' #Blank for this stage
+$global:RegistrationArray = @() 
 
 #Desktop and Laptop Registration Process is the same, filter by interface name
 
 foreach ($line in $NetworkHw) {
 
-    #Checks for Docking Station entry and adds to object.
+    #Check for Docking Station entry and adds to object.
 
     if ($line.InterfaceDescription -like "*USB GbE*") {
 
-    Write-Output "`n[i] Adding entry for Wired Dock..."
-
-    $RegistrationObject = New-Object PSObject
-
-    $RegistrationObject | Add-Member -MemberType NoteProperty -Name MACAddress -Value $($line.MacAddress)
-    $RegistrationObject | Add-Member -MemberType NoteProperty -Name IPAddress -Value $IPAddress
-    $RegistrationObject | Add-Member -MemberType NoteProperty -Name UCINetID -Value $AdminUCINetID
-    $RegistrationObject | Add-Member -MemberType NoteProperty -Name Comment -Value "Computername: $($HwBuild.Name). Model: $($HwBuild.Model). SN# $SystemSerial. Wired Dock. Entered by $TechnicianName"
-
-    $RegistrationArray += $RegistrationObject
-    Write-Output "`n[i] Entry Added."
+        New-RegistrationObject($line, "Wired Dock")
 
     }
 
-    #Checks for Ethernet entry and adds to array. 
+    #Check for Ethernet entry and adds to array. 
+    ElseIf ($line.Name -like "*Ethernet*") {
 
-    ElseIf ($line.InterfaceDescription -like "*Ethernet Connection*") {
-
-    Write-Output "`n[i] Adding entry for Wired Ethernet..."
-
-    $RegistrationObject = New-Object PSObject
-
-    $RegistrationObject | Add-Member -MemberType NoteProperty -Name MACAddress -Value $($line.MacAddress)
-    $RegistrationObject | Add-Member -MemberType NoteProperty -Name IPAddress -Value $IPAddress
-    $RegistrationObject | Add-Member -MemberType NoteProperty -Name UCINetID -Value $AdminUCINetID
-    $RegistrationObject | Add-Member -MemberType NoteProperty -Name Comment -Value "Computername: $($HwBuild.Name). Model: $($HwBuild.Model). SN# $SystemSerial. Wired. Entered by $TechnicianName"
-
-    $RegistrationArray += $RegistrationObject
-    Write-Output "`n[i] Entry Added."
+        New-RegistrationObject($line, "Wired")
 
     }
 
-    #Checks for Wireless entry and adds to object.
-
+    #Check for Wireless entry and adds to object.
     ElseIf ($line.Name -like "*Wi-Fi*") {
-        
-    Write-Output "`n[i] Adding entry for Wireless Adapter..."
 
-    $RegistrationObject = New-Object PSObject
-
-    $RegistrationObject | Add-Member -MemberType NoteProperty -Name MACAddress -Value $($line.MacAddress)
-    $RegistrationObject | Add-Member -MemberType NoteProperty -Name IPAddress -Value $IPAddress
-    $RegistrationObject | Add-Member -MemberType NoteProperty -Name UCINetID -Value $AdminUCINetID
-    $RegistrationObject | Add-Member -MemberType NoteProperty -Name Comment -Value "Computername: $($HwBuild.Name). Model: $($HwBuild.Model). SN# $SystemSerial. Wireless. Entered by $TechnicianName"
-
-    $RegistrationArray += $RegistrationObject
-    Write-Output "`n[i] Entry Added."
+        New-RegistrationObject($line, "Wireless")
 
     }
-
 }
 
-Write-Host ($RegistrationArray | Format-Table | Out-String)
-Write-Output "All registrations complete."
+Write-Information -MessageData ($RegistrationArray | Format-Table | Out-String)
+Write-Information -MessageData "All Interfaces Indexed"
 
 #################################################################################
 
 #Assign IP Addresses
 
-Write-Output "`n<<<`tIP Address Assignment`t>>>`n"
+Write-Information -MessageData "`n<<<`tIP Address Assignment`t>>>`n"
 
 #Assigns IP Addresses to onboard and external NICs
 #If multiple IP addresses to assign, option exists to assign IPs to individual NICs
 
-Write-Output "`nEnter Primary IP Address to Register Below. Leave blank if no IP to assign.`n"
+Write-Information -MessageData "`nEnter Primary IP Address to Register Below. Leave blank if no IP to assign.`n"
 
-$IpPrimary = Set-IP(Compare-String("IP Address"))
+$IpPrimary = Set-IP
+$RegistrationArray[0].IPAddress = $IpPrimary
 
-if (($null -ne $IpPrimary) -and ($IpPrimary -ne '')) { 
 
-    $RegistrationArray[0].IPAddress = $IpPrimary
+Write-Information -MessageData "`nEnter Secondary IP Address to Register Below. Leave blank if no IP to assign.`n"
 
-}
+$IpSecondary = Set-IP
+$RegistrationArray[1].IPAddress = $IpSecondary
 
-while ($true) {
-
-    $IpSecondary = Read-Host -Prompt "Enter Secondary IP Address to Register. Leave blank if no IP to assign."
-    if (($null -eq $IpSecondary) -or ($IpSecondary -eq '')) {
-        break
-    }
-
-    else {
-        #Checks if the IP address is valid or not
-        $IpAddressCheck = "((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)"
-        if ($IpSecondary -notmatch $IpAddressCheck) {
-            Write-Host "`n[!] Invalid IP Address. Check entry and try again.`n"
-        }
-        else {
-            $RegistrationArray[1].IPAddress = $IpSecondary
-            break
-        }
-    }
-
-}
-
-Write-Host ($RegistrationArray | Format-Table | Out-String)
-Write-Output "Registrations Updated"
+Write-Information -MessageData "- Registrations Updated"
 
 #################################################################################
 
-#CSV Output
+#CSV-Like Output
 
-Write-Host ($RegistrationArray | Format-List | Out-String)
+Write-Information -MessageData "`n<<<`tFinal Registration Information`t>>>`n"
+
+Write-Information -MessageData ($RegistrationArray | Format-List | Out-String)
 
 $TempPath = "$($env:USERPROFILE)\Desktop\TEMP.txt"
-$UserPath = "$($env:USERPROFILE)\Desktop\$($HwBuild.Name)-MacIpRegistration.txt"
+$UserPath = "$($env:USERPROFILE)\Desktop\$($HwBuild.Name)-Mobile-Access-Reg.txt"
 
-$RegistrationArray | convertto-csv -NoTypeInformation -Delimiter "," | % {$_ -replace '"',''} | Out-File $TempPath
+$RegistrationArray | convertto-csv -NoTypeInformation -Delimiter "," | ForEach-Object { $_ -replace '"', '' } | Out-File $TempPath
 
-Get-Content $TempPath | select -Skip 1 | Out-File $UserPath
+Get-Content $TempPath | Select-Object -Skip 1 | Out-File $UserPath
 
 Remove-Item $TempPath
 
-Read-Host -Prompt "Script Completed. Press Enter to exit."
+# DEBUG | $null = Stop-Transcript
+
+Read-Host -Prompt "Script Completed. Batch Registration Text saved to Desktop.`n`nPress [Enter] to exit"
