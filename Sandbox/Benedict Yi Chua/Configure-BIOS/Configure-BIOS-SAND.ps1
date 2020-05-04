@@ -75,6 +75,7 @@ Set-Item .\BiosAutoRcvr "Enabled"
 
 # Desktop-Computers - Can be all - Disable S4 and S5
 
+Set-Location -Path DellSmbios:\PowerManagement\ -PassThru
 Set-Item DeepSleepCtrl "Disabled"
 
 # Laptop-Computers - Configure WLAN and WWAN card control
