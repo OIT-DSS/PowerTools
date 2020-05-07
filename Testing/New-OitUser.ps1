@@ -29,7 +29,6 @@ try {
     $NewUserObj = Get-UciLdapUser -UCInetID $NewUser -ErrorAction Stop
 }
 catch {  
-    
     Write-Warning -Message "User $NewUser not found at ldap.oit.uci.edu. Please check the UCINetID and try again."
     Read-Host -Prompt "Press any key to exit the script."
     exit
@@ -38,6 +37,8 @@ catch {
 # $NewUserObjgivenName = 'FirstName'
 # $NewUserObjsn = 'LastName'
 
+#Pull the Source Users Data.  If the ID provided does not have an AD account
+#The script will notify the user and exit.
 try {
     $SourceUserObj = Get-ADUser -Identity $SourceUser -Properties ProfilePath
 }
@@ -93,7 +94,7 @@ $NewUserParams =  @{
     'ChangePasswordAtLogon' = $true 
     'Enabled'               = $true 
                                #Converts DistinguishedName to a format usable for the 'Path' Parameter
-    'Path'                  = ($SourceUserObj.DistinguishedName -split ',(?=OU)') | Select-Object -skip 1) -join ','
+    'Path'                  = (($SourceUserObj.DistinguishedName -split ',(?=OU)') | Select-Object -skip 1) -join ','
     'ProfilePath'           = $NewProfilePath
     'Email'                 = $Email
 }
@@ -101,10 +102,10 @@ $NewUserParams =  @{
 #Create new AD user
 New-ADUser @NewUserParams
 
-#Collect and Display Group Memberships of Source User
+#Collect and Display Group Memberships of Source User.  Remove "Domain Users" to avoid conflict
 $GroupList = (Get-ADPrincipalGroupMembership -Identity $SourceUser -Server (Get-ADDomain).PDCEmulator).Name | Where-Object { $_ -ne "Domain Users"}
-Write-Host "$NewUser will be added to the following Active Directory Groups."
-$GroupList 
+Write-Host "$NewUser will be added to the following Active Directory Groups.
+$GroupList"
 Write-Host "Please make any changes to group memberships manually after the script has completed."
 Read-Host -Prompt "Press the Enter key to continue."
 
@@ -114,7 +115,7 @@ foreach ($Group in $GroupList) {
 }
 
 #Get-ADUser -Identity $SourceUser -Properties memberof | Select-Object -ExpandProperty memberof |  Add-ADGroupMember -Members $TargetUser
--
+
 #Get and Set user permissions on the user profile directory
 $Acl = Get-Acl -Path $NewProfilePath
 $AccessRule = New-Object System.Security.AccessControl.FileSystemAccessRule("ad.uci.edu\$NewUser","Modify","ContainerInherit,ObjectInherit", "None", "Allow")
