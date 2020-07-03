@@ -4,10 +4,10 @@ PowerShell Tools for Office of Information Technology, Desktop Support Group at 
 Tools available for modification and reuse to support common IT tasks. Powershell scripts offer auditable, repeatable, and
 robust automation of common DSS tasks. 
 
-# In the Toolbox (Beta)
+# In the Toolbox
 
 * Create-Presenter | Two flavors of the same script. Creates a local presenter account with the option of autologon. 
-* Register-MAC-Prod | A device-agnostic script to automatically gather network interface information. Outputs a text file for easy cut-and-paste bulk registration of MAC addresses 
+* **NEW!** Register-MAC-2 | A device-agnostic script to automatically gather network interface information. Can be run without a network connection. Outputs a text file for easy cut-and-paste bulk registration of MAC addresses 
 
 # In the Lab 
 
